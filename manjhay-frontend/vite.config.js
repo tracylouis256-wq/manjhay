@@ -4,10 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [
-    react({
-      include: ['**/*.js', '**/*.jsx'], // Optional, ensures all JS/JSX files are handled
-    }),
-    tailwindcss()
+    react(),       // Handles JSX automatically
+    tailwindcss()  // Tailwind integration
   ],
   server: {
     port: 3000,
