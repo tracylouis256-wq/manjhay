@@ -8,10 +8,10 @@ class WebSocketService {
     try {
       console.log('🔄 Initializing WebSocket server for Render.com...');
       
-      // WebSocket server with PROPER CORS verification for Render.com
+      // WebSocket server with PROPER CORS verification
       this.wss = new WebSocket.Server({ 
         server,
-        path: '/ws',
+        path: '/ws', // SINGLE PATH
         verifyClient: (info, callback) => {
           const allowedOrigins = [
             'https://manjhay.vercel.app',
@@ -25,7 +25,7 @@ class WebSocketService {
           console.log(`🔌 WebSocket connection attempt from origin: ${requestOrigin}`);
           console.log(`📍 Request URL: ${info.req.url}`);
           
-          // Allow connections from allowed origins or if origin is undefined (can happen with some WebSocket clients)
+          // Allow connections from allowed origins or if origin is undefined
           if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
             console.log('✅ WebSocket CORS allowed for origin:', requestOrigin || 'undefined (direct connection)');
             callback(true);
