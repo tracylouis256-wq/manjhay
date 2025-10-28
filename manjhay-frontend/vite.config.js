@@ -1,12 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [
-    react(),       // Handles JSX automatically
-    tailwindcss()  // Tailwind integration
-  ],
+  plugins: [react()],
+  css: {
+    postcss: './postcss.config.js'
+  },
   server: {
     port: 3000,
     proxy: {
@@ -15,5 +14,21 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          utils: ['axios', 'react-toastify']
+        }
+      }
+    }
+  },
+  // Important for Vercel deployment
+  define: {
+    'process.env': {}
   }
 })

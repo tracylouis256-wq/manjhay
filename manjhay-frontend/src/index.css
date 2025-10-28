@@ -24,9 +24,10 @@
 
 /* Base styles */
 body {
+  font-family: 'Inter', system-ui, sans-serif;
   background-color: white;
   color: black;
-  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.6;
 }
 
 /* Ensure all sections have proper contrast */
@@ -74,74 +75,394 @@ section, .section {
   overflow: hidden;
 }
 
-/* Your custom component classes */
-@layer components {
-  .btn-primary {
-    background: #f97316;
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    transition: all 0.2s;
-  }
-  
-  .btn-primary:hover {
-    background: #ea580c;
-  }
-  
-  .btn-primary:active {
-    transform: scale(0.98);
-  }
-  
-  .btn-secondary {
-    background: #f3f4f6;
-    color: #374151;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    border: 1px solid #d1d5db;
-    transition: background-color 0.2s;
-  }
-  
-  .btn-secondary:hover {
-    background: #e5e7eb;
-  }
-  
-  .btn-secondary:active {
-    transform: scale(0.98);
-  }
-  
-  @layer components {
-  .btn-primary {
-    @apply bg-[#f97316] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#ea580c] transition-colors;
-  }
-  
-  .btn-primary-lg {
-    @apply bg-[#f97316] text-white w-full py-2 px-4 rounded-md font-medium hover:bg-[#ea580c] transition-colors;
-  }
-  
-  .text-primary {
-    @apply text-[#f97316];
-  }
-  
-  .text-primary-hover {
-    @apply text-[#ea580c];
+/* Loading animations */
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-  .input-field {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    color: #9ca3af;
-    transition: border-color 0.15s, box-shadow 0.15s;
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* Focus styles for accessibility */
+.focus-ring:focus {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+/* Custom component classes */
+.btn-primary {
+  background-color: #f97316;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease-in-out;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary:hover {
+  background-color: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+}
+
+.btn-primary:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-primary-lg {
+  background-color: #f97316;
+  color: white;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.btn-primary-lg:hover {
+  background-color: #ea580c;
+}
+
+.btn-secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #111827;
+  font-size: 0.875rem;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+}
+
+.input-field::placeholder {
+  color: #9ca3af;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.input-field:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.input-field.error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Card styles */
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease-in-out;
+}
+
+.card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  padding: 1.25rem 1.5rem 0;
+}
+
+.card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.card-footer {
+  padding: 0 1.5rem 1.25rem;
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.badge-primary {
+  background-color: #fef7ee;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.badge-success {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-warning {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Text utilities */
+.text-primary {
+  color: #f97316;
+}
+
+.text-primary-hover:hover {
+  color: #ea580c;
+}
+
+.text-ghana-red {
+  color: #CE1126;
+}
+
+.text-ghana-yellow {
+  color: #FCD116;
+}
+
+.text-ghana-green {
+  color: #006B3F;
+}
+
+.text-ghana-black {
+  color: #000000;
+}
+
+/* Background utilities */
+.bg-primary {
+  background-color: #f97316;
+}
+
+.bg-primary-hover:hover {
+  background-color: #ea580c;
+}
+
+.bg-ghana-red {
+  background-color: #CE1126;
+}
+
+.bg-ghana-yellow {
+  background-color: #FCD116;
+}
+
+.bg-ghana-green {
+  background-color: #006B3F;
+}
+
+.bg-ghana-black {
+  background-color: #000000;
+}
+
+/* Border utilities */
+.border-primary {
+  border-color: #f97316;
+}
+
+.border-ghana-red {
+  border-color: #CE1126;
+}
+
+.border-ghana-yellow {
+  border-color: #FCD116;
+}
+
+.border-ghana-green {
+  border-color: #006B3F;
+}
+
+.border-ghana-black {
+  border-color: #000000;
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
   }
   
-  .input-field:focus {
-    outline: none;
-    border-color: #f97316;
-    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+  .print-break-before {
+    page-break-before: always;
+  }
+  
+  .print-break-after {
+    page-break-after: always;
+  }
+  
+  .print-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+}
+
+/* Dark mode support (if needed later) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-support {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+}
+
+/* Mobile responsiveness helpers */
+.mobile-only {
+  display: block;
+}
+
+.desktop-only {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn-primary,
+  .btn-secondary {
+    border: 2px solid;
+  }
+  
+  .input-field {
+    border: 2px solid;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
