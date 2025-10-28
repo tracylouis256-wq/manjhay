@@ -1,0 +1,147 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  /* Custom colors */
+  --color-primary-50: #fff7ed;
+  --color-primary-100: #ffedd5;
+  --color-primary-200: #fed7aa;
+  --color-primary-300: #fdba74;
+  --color-primary-400: #fb923c;
+  --color-primary-500: #f97316;
+  --color-primary-600: #ea580c;
+  --color-primary-700: #c2410c;
+  --color-primary-800: #9a3412;
+  --color-primary-900: #7c2d12;
+  
+  --color-ghana-red: #CE1126;
+  --color-ghana-yellow: #FCD116;
+  --color-ghana-green: #006B3F;
+  --color-ghana-black: #000000;
+}
+
+/* Base styles */
+body {
+  background-color: white;
+  color: black;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Ensure all sections have proper contrast */
+section, .section {
+  background-color: white;
+  color: black;
+}
+
+/* Hero section specific styles */
+.hero-section {
+  background-color: white;
+  color: black;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Your custom component classes */
+@layer components {
+  .btn-primary {
+    background: #f97316;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s;
+  }
+  
+  .btn-primary:hover {
+    background: #ea580c;
+  }
+  
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    border: 1px solid #d1d5db;
+    transition: background-color 0.2s;
+  }
+  
+  .btn-secondary:hover {
+    background: #e5e7eb;
+  }
+  
+  .btn-secondary:active {
+    transform: scale(0.98);
+  }
+  
+  @layer components {
+  .btn-primary {
+    @apply bg-[#f97316] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#ea580c] transition-colors;
+  }
+  
+  .btn-primary-lg {
+    @apply bg-[#f97316] text-white w-full py-2 px-4 rounded-md font-medium hover:bg-[#ea580c] transition-colors;
+  }
+  
+  .text-primary {
+    @apply text-[#f97316];
+  }
+  
+  .text-primary-hover {
+    @apply text-[#ea580c];
+  }
+}
+
+  .input-field {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    color: #9ca3af;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  
+  .input-field:focus {
+    outline: none;
+    border-color: #f97316;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+  }
+}
