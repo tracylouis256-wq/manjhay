@@ -21,7 +21,19 @@ const userRoutes = require('./routes/userRoutes');
 // Connect to database
 connectDB();
 
+// Define allowed origins for CORS
+const ALLOWED_ORIGINS = [
+  'https://manjhay.vercel.app',
+  'https://manjhay-git-main-manjhays-projects.vercel.app',
+  'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
+  'http://localhost:3000',
+  'https://localhost:3000'
+];
+
 const app = express();
+
+// CRITICAL FIX: Trust Render.com proxy for rate limiting and IP detection
+app.set('trust proxy', 1);
 
 // Security headers with WebSocket support
 app.use(helmet({
@@ -40,16 +52,8 @@ app.use(helmet({
 // Enhanced CORS configuration for Render.com
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://manjhay.vercel.app',
-      'https://manjhay-git-main-manjhays-projects.vercel.app',
-      'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
-      'http://localhost:3000',
-      'https://localhost:3000'
-    ];
-    
     // Allow requests with no origin (like mobile apps, postman, or websocket clients)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || ALLOWED_ORIGINS.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.log('❌ CORS blocked origin:', origin);
@@ -126,7 +130,7 @@ app.get('/api/health', (req, res) => {
     version: '2.0.0',
     cors: {
       enabled: true,
-      allowedOrigins: corsOptions.origin
+      allowedOrigins: ALLOWED_ORIGINS
     },
     websocket: {
       ...wsStatus,
@@ -146,7 +150,8 @@ app.get('/api/health', (req, res) => {
     server: {
       platform: 'render.com',
       node_version: process.version,
-      memory: process.memoryUsage()
+      memory: process.memoryUsage(),
+      trust_proxy: 'enabled'
     }
   });
 });
@@ -220,14 +225,8 @@ app.get('/api/websocket-connection-test', async (req, res) => {
   }
 });
 
-// Serve frontend in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../manjhay-frontend/build')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../manjhay-frontend/build', 'index.html'));
-  });
-}
+// FIXED: Remove frontend serving since this is API-only on Render
+console.log('🚫 Frontend serving disabled - API-only mode on Render.com');
 
 // Handle 404 routes
 app.use('*', (req, res) => {
@@ -265,12 +264,13 @@ try {
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  console.log(`🌐 CORS Allowed Origins: ${corsOptions.origin.join(', ')}`);
+  console.log(`🌐 CORS Allowed Origins: ${ALLOWED_ORIGINS.join(', ')}`);
   console.log(`🔗 Health check: https://manjhay-backend.onrender.com/api/health`);
   console.log(`🔌 WebSocket test: https://manjhay-backend.onrender.com/api/websocket-test`);
   console.log(`📡 WebSocket endpoint: wss://manjhay-backend.onrender.com/ws`);
   console.log(`⚡ Server listening on: 0.0.0.0:${PORT}`);
   console.log(`🔒 WebSocket Authentication: Token-based via query parameter`);
+  console.log(`🔧 Trust Proxy: Enabled for Render.com`);
 });
 
 // Handle unhandled promise rejections
