@@ -30,13 +30,15 @@ export const NotificationProvider = ({ children }) => {
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_INTERVAL = 5000;
 
-  // ✅ FIXED FOR VITE: Use import.meta.env instead of process.env
-  const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
-  const WS_URL = import.meta.env?.VITE_WS_URL || 'ws://localhost:5000';
+  // ✅ FIXED FOR RENDER.COM: Use environment variables
+  const API_URL = import.meta.env?.VITE_API_URL || 'https://manjhay-backend.onrender.com';
+  const WS_URL = import.meta.env?.VITE_WS_URL || 'wss://manjhay-backend.onrender.com';
 
-  // ✅ SAFE: Get WebSocket URL
+  // ✅ FIXED: Get WebSocket URL for Render.com
   const getWebSocketUrl = (token) => {
-    return `${WS_URL}/ws?token=${token}`;
+    const wsUrl = `${WS_URL}/ws?token=${token}`;
+    console.log('🔌 [WEBSOCKET] Connecting to:', wsUrl);
+    return wsUrl;
   };
 
   // Set up axios base URL
@@ -83,10 +85,10 @@ export const NotificationProvider = ({ children }) => {
     console.log('💾 [NOTIFICATION] Saved unread count to localStorage:', unreadCount);
   }, [unreadCount]);
 
-  // WebSocket connection
+  // WebSocket connection - FIXED FOR RENDER.COM
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('🔌 [NOTIFICATION] User authenticated, connecting WebSocket...');
+      console.log('🔌 [NOTIFICATION] User authenticated, connecting WebSocket to Render.com...');
       connectWebSocket();
     } else {
       console.log('🔌 [NOTIFICATION] User not authenticated, closing WebSocket...');
@@ -116,12 +118,12 @@ export const NotificationProvider = ({ children }) => {
 
       const wsUrl = getWebSocketUrl(token);
       
-      console.log('🔌 [NOTIFICATION] Attempting WebSocket connection to:', wsUrl);
+      console.log('🔌 [NOTIFICATION] Attempting WebSocket connection to Render.com:', wsUrl);
       
       const websocket = new WebSocket(wsUrl);
       
       websocket.onopen = () => {
-        console.log('✅ [NOTIFICATION] WebSocket connected successfully');
+        console.log('✅ [NOTIFICATION] WebSocket connected successfully to Render.com');
         setIsConnected(true);
         setWs(websocket);
         setReconnectAttempts(0);
@@ -139,7 +141,7 @@ export const NotificationProvider = ({ children }) => {
       websocket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('📨 [NOTIFICATION] WebSocket message received:', message);
+          console.log('📨 [NOTIFICATION] WebSocket message received from Render.com:', message);
           handleWebSocketMessage(message);
         } catch (error) {
           console.error('❌ [NOTIFICATION] Error parsing WebSocket message:', error);
@@ -147,7 +149,7 @@ export const NotificationProvider = ({ children }) => {
       };
 
       websocket.onclose = (event) => {
-        console.log('❌ [NOTIFICATION] WebSocket disconnected:', event.code, event.reason);
+        console.log('❌ [NOTIFICATION] WebSocket disconnected from Render.com:', event.code, event.reason);
         setIsConnected(false);
         setWs(null);
         
@@ -170,37 +172,38 @@ export const NotificationProvider = ({ children }) => {
       };
 
       websocket.onerror = (error) => {
-        console.error('❌ [NOTIFICATION] WebSocket error:', error);
+        console.error('❌ [NOTIFICATION] WebSocket error with Render.com:', error);
         setIsConnected(false);
       };
 
     } catch (error) {
-      console.error('❌ [NOTIFICATION] WebSocket connection failed:', error);
+      console.error('❌ [NOTIFICATION] WebSocket connection failed to Render.com:', error);
       // Fallback to polling if WebSocket fails
       startPolling();
     }
   }, [isAuthenticated, user, reconnectAttempts, API_URL]);
 
   const handleWebSocketMessage = (message) => {
-    console.log('🔍 [NOTIFICATION] WebSocket message received:', message);
+    console.log('🔍 [NOTIFICATION] WebSocket message received from Render.com:', message);
     
     switch (message.type) {
       case 'new_notification':
-        console.log('📢 [NOTIFICATION] New notification received:', message.data);
+        console.log('📢 [NOTIFICATION] New notification received from Render.com:', message.data);
         addNotification(message.data);
         showToastNotification(message.data);
         break;
       case 'connection_established':
-        console.log('✅ [NOTIFICATION] WebSocket connection established');
+        console.log('✅ [NOTIFICATION] WebSocket connection established with Render.com');
+        toast.success('🔗 Connected to real-time notifications');
         break;
       case 'pong':
-        console.log('🏓 [NOTIFICATION] Pong received - connection healthy');
+        console.log('🏓 [NOTIFICATION] Pong received - connection healthy with Render.com');
         break;
       case 'new_admin_notification':
-        console.log('📢 [NOTIFICATION] New admin notification:', message.data);
+        console.log('📢 [NOTIFICATION] New admin notification from Render.com:', message.data);
         break;
       default:
-        console.log('❓ [NOTIFICATION] Unknown WebSocket message type:', message.type);
+        console.log('❓ [NOTIFICATION] Unknown WebSocket message type from Render.com:', message.type);
     }
   };
 
@@ -209,7 +212,7 @@ export const NotificationProvider = ({ children }) => {
     // Poll for new notifications every 30 seconds if WebSocket fails
     const interval = setInterval(() => {
       if (isAuthenticated) {
-        console.log('🔄 [NOTIFICATION] Polling for notifications...');
+        console.log('🔄 [NOTIFICATION] Polling for notifications from Render.com...');
         fetchUnreadCount();
         fetchNotifications(1, 5); // Fetch latest 5 notifications
       }
@@ -237,7 +240,7 @@ export const NotificationProvider = ({ children }) => {
       setLoading(true);
       
       const response = await axios.get(`/api/notifications/user?page=${page}&limit=${limit}`);
-      console.log('📡 [NOTIFICATION] Notifications fetched:', response.data.data.length);
+      console.log('📡 [NOTIFICATION] Notifications fetched from Render.com:', response.data.data.length);
       
       if (page === 1) {
         setNotifications(response.data.data);
@@ -248,7 +251,7 @@ export const NotificationProvider = ({ children }) => {
       if (error.response?.status === 429) {
         console.log('⏰ [NOTIFICATION] Rate limited, will retry later');
       } else {
-        console.error('❌ [NOTIFICATION] Error fetching notifications:', error);
+        console.error('❌ [NOTIFICATION] Error fetching notifications from Render.com:', error);
       }
     } finally {
       setLoading(false);
@@ -268,15 +271,15 @@ export const NotificationProvider = ({ children }) => {
 
     try {
       isFetchingUnreadCountRef.current = true;
-      console.log('📡 [NOTIFICATION] Fetching unread count...');
+      console.log('📡 [NOTIFICATION] Fetching unread count from Render.com...');
       const response = await axios.get('/api/notifications/user/unread-count');
-      console.log('📡 [NOTIFICATION] Unread count:', response.data.data.count);
+      console.log('📡 [NOTIFICATION] Unread count from Render.com:', response.data.data.count);
       setUnreadCount(response.data.data.count);
     } catch (error) {
       if (error.response?.status === 429) {
         console.log('⏰ [NOTIFICATION] Rate limited for unread count, will retry later');
       } else {
-        console.error('❌ [NOTIFICATION] Error fetching unread count:', error);
+        console.error('❌ [NOTIFICATION] Error fetching unread count from Render.com:', error);
       }
     } finally {
       isFetchingUnreadCountRef.current = false;
@@ -285,7 +288,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Add notification to state
   const addNotification = (notification) => {
-    console.log('➕ [NOTIFICATION] Adding notification to state:', notification);
+    console.log('➕ [NOTIFICATION] Adding notification to state from Render.com:', notification);
     
     // Check if notification already exists to prevent duplicates
     const notificationExists = notifications.some(n => n._id === notification._id);
@@ -304,7 +307,7 @@ export const NotificationProvider = ({ children }) => {
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      console.log('📝 [NOTIFICATION] Marking notification as read:', notificationId);
+      console.log('📝 [NOTIFICATION] Marking notification as read on Render.com:', notificationId);
       await axios.post('/api/notifications/user/mark-read', { notificationId });
       
       setNotifications(prev =>
@@ -314,7 +317,7 @@ export const NotificationProvider = ({ children }) => {
       );
       
       setUnreadCount(prev => Math.max(0, prev - 1));
-      console.log('✅ [NOTIFICATION] Notification marked as read');
+      console.log('✅ [NOTIFICATION] Notification marked as read on Render.com');
     } catch (error) {
       if (error.response?.status === 429) {
         console.log('⏰ [NOTIFICATION] Rate limited while marking as read');
@@ -326,7 +329,7 @@ export const NotificationProvider = ({ children }) => {
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
       } else {
-        console.error('❌ [NOTIFICATION] Error marking notification as read:', error);
+        console.error('❌ [NOTIFICATION] Error marking notification as read on Render.com:', error);
       }
     }
   };
@@ -334,7 +337,7 @@ export const NotificationProvider = ({ children }) => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      console.log('📝 [NOTIFICATION] Marking all notifications as read');
+      console.log('📝 [NOTIFICATION] Marking all notifications as read on Render.com');
       await axios.post('/api/notifications/user/mark-all-read');
       
       setNotifications(prev =>
@@ -342,7 +345,7 @@ export const NotificationProvider = ({ children }) => {
       );
       
       setUnreadCount(0);
-      console.log('✅ [NOTIFICATION] All notifications marked as read');
+      console.log('✅ [NOTIFICATION] All notifications marked as read on Render.com');
     } catch (error) {
       if (error.response?.status === 429) {
         console.log('⏰ [NOTIFICATION] Rate limited while marking all as read');
@@ -352,7 +355,7 @@ export const NotificationProvider = ({ children }) => {
         );
         setUnreadCount(0);
       } else {
-        console.error('❌ [NOTIFICATION] Error marking all notifications as read:', error);
+        console.error('❌ [NOTIFICATION] Error marking all notifications as read on Render.com:', error);
       }
     }
   };
@@ -360,7 +363,7 @@ export const NotificationProvider = ({ children }) => {
   // Delete notification
   const deleteNotification = async (notificationId) => {
     try {
-      console.log('🗑️ [NOTIFICATION] Deleting notification:', notificationId);
+      console.log('🗑️ [NOTIFICATION] Deleting notification on Render.com:', notificationId);
       await axios.delete(`/api/notifications/user/${notificationId}`);
       
       const notification = notifications.find(n => n._id === notificationId);
@@ -369,7 +372,7 @@ export const NotificationProvider = ({ children }) => {
       if (notification && !notification.read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-      console.log('✅ [NOTIFICATION] Notification deleted');
+      console.log('✅ [NOTIFICATION] Notification deleted on Render.com');
     } catch (error) {
       if (error.response?.status === 429) {
         console.log('⏰ [NOTIFICATION] Rate limited while deleting notification');
@@ -380,14 +383,14 @@ export const NotificationProvider = ({ children }) => {
           setUnreadCount(prev => Math.max(0, prev - 1));
         }
       } else {
-        console.error('❌ [NOTIFICATION] Error deleting notification:', error);
+        console.error('❌ [NOTIFICATION] Error deleting notification on Render.com:', error);
       }
     }
   };
 
   // Show toast notification
   const showToastNotification = (notification) => {
-    console.log('🍞 [NOTIFICATION] Showing toast notification:', notification);
+    console.log('🍞 [NOTIFICATION] Showing toast notification from Render.com:', notification);
     
     const toastConfig = {
       position: "bottom-right",
@@ -432,7 +435,7 @@ export const NotificationProvider = ({ children }) => {
   // Load initial data with protection against multiple calls
   useEffect(() => {
     if (isAuthenticated && !hasInitializedRef.current) {
-      console.log('🔍 [NOTIFICATION] User authenticated, loading initial data...');
+      console.log('🔍 [NOTIFICATION] User authenticated, loading initial data from Render.com...');
       hasInitializedRef.current = true;
       
       // Add a small delay to prevent immediate API calls on app start
@@ -452,7 +455,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Manual reconnect function
   const reconnect = () => {
-    console.log('🔄 [NOTIFICATION] Manual reconnect requested');
+    console.log('🔄 [NOTIFICATION] Manual reconnect requested to Render.com');
     setReconnectAttempts(0);
     if (ws) {
       ws.close();
