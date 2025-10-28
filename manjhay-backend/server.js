@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const http = require('http');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const WebSocketService = require('./services/websocketService');
@@ -25,9 +26,15 @@ const app = express();
 // Security headers
 app.use(helmet());
 
-// Enhanced CORS configuration - MUST BE BEFORE ROUTES
+// Enhanced CORS configuration - FIXED FOR RENDER.COM
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: [
+    'https://manjhay.vercel.app',
+    'https://manjhay-git-main-manjhays-projects.vercel.app',
+    'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-auth-token'],
@@ -41,8 +48,8 @@ app.options('*', cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -64,14 +71,15 @@ app.use('/api/orders', orders);
 app.use('/api/inventory', inventory);
 app.use('/api/notifications', notifications);
 app.use('/api/user-requests', userRequests);
-app.use('/api/users', userRoutes); // Changed from '/api/auth' to '/api/users'
+app.use('/api/users', userRoutes);
 
 // Health check route with WebSocket status
 app.get('/api/health', (req, res) => {
   const wsStatus = global.wsService ? {
     connected: true,
     clients: global.wsService.getConnectionCount(),
-    connectedUsers: global.wsService.getConnectedUsers()
+    connectedUsers: global.wsService.getConnectedUsers(),
+    connectionStats: global.wsService.getConnectionStats()
   } : {
     connected: false,
     clients: 0,
@@ -84,14 +92,22 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     version: '1.0.0',
-    websocket: wsStatus,
+    cors: {
+      enabled: true,
+      allowedOrigins: corsOptions.origin
+    },
+    websocket: {
+      ...wsStatus,
+      endpoint: '/ws',
+      protocol: 'wss'
+    },
     endpoints: {
       auth: '/api/auth',
       products: '/api/products',
       orders: '/api/orders',
       users: '/api/users',
       notifications: '/api/notifications',
-      websocket: 'ws://localhost:5000/ws'
+      websocket: '/ws'
     }
   });
 });
@@ -105,11 +121,7 @@ app.get('/api/websocket-test', (req, res) => {
     });
   }
 
-  const stats = {
-    connectedClients: global.wsService.getConnectionCount(),
-    connectedUsers: global.wsService.getConnectedUsers(),
-    service: 'WebSocket Service Active'
-  };
+  const stats = global.wsService.getConnectionStats();
 
   res.json({
     success: true,
@@ -140,31 +152,30 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
+// Create HTTP server explicitly for WebSocket
+const server = http.createServer(app);
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  console.log(`📁 Uploads directory: ${path.join(__dirname, 'uploads')}`);
-  console.log(`🌐 Client URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔌 WebSocket test: http://localhost:${PORT}/api/websocket-test`);
-  console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws`);
-  console.log(`📝 User Requests API: http://localhost:${PORT}/api/user-requests`);
-  console.log(`👥 User Management API: http://localhost:${PORT}/api/users/admin/users`);
+  console.log(`🌐 CORS Allowed Origins: ${corsOptions.origin.join(', ')}`);
+  console.log(`🔗 Health check: https://manjhay-backend.onrender.com/api/health`);
+  console.log(`🔌 WebSocket test: https://manjhay-backend.onrender.com/api/websocket-test`);
+  console.log(`📡 WebSocket endpoint: wss://manjhay-backend.onrender.com/ws`);
+  console.log(`⚡ Server listening on: 0.0.0.0:${PORT}`);
 });
 
-// Initialize WebSocket service with enhanced error handling
+// Initialize WebSocket service with the HTTP server
 try {
   global.wsService = new WebSocketService(server);
   console.log('✅ WebSocket service initialized successfully');
-  console.log(`📡 WebSocket server listening on ws://localhost:${PORT}/ws`);
+  console.log(`📡 WebSocket server listening on path: /ws`);
 } catch (error) {
   console.error('❌ WebSocket service failed to initialize:', error.message);
-  console.error('🔧 WebSocket stack trace:', error.stack);
 }
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
   console.log('❌ Unhandled Rejection at:', promise, 'reason:', err);
-  console.log('🔧 Stack trace:', err.stack);
   server.close(() => {
     process.exit(1);
   });
@@ -174,20 +185,11 @@ process.on('unhandledRejection', (err, promise) => {
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received, shutting down gracefully');
   if (global.wsService) {
-    console.log('🔌 Closing WebSocket connections...');
-    global.wsService.wss.close(() => {
-      console.log('✅ WebSocket server closed');
-    });
+    global.wsService.closeAllConnections();
   }
   server.close(() => {
     console.log('💤 Process terminated');
   });
 });
 
-// Handle process exit
-process.on('exit', (code) => {
-  console.log(`🔚 Process exiting with code: ${code}`);
-});
-
-// Export for testing
 module.exports = server;
