@@ -42,6 +42,31 @@ exports.getUserNotifications = async (req, res, next) => {
   }
 };
 
+// @desc    Test WebSocket notification
+// @route   POST /api/notifications/test-websocket
+// @access  Private
+exports.testWebSocketNotification = async (req, res, next) => {
+  try {
+    const { userId, message } = req.body;
+
+    // Create test notification
+    const notification = await NotificationService.createUserNotification(
+      userId || req.user.id,
+      'system',
+      'WebSocket Test',
+      message || 'This is a test notification sent via WebSocket!'
+    );
+
+    res.json({
+      success: true,
+      message: 'WebSocket test notification sent',
+      data: notification
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get admin notifications
 // @route   GET /api/notifications/admin
 // @access  Private/Admin

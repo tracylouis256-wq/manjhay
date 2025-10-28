@@ -23,22 +23,45 @@ connectDB();
 
 const app = express();
 
-// Security headers
-app.use(helmet());
+// Security headers with WebSocket support
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "wss:", "https://manjhay-backend.onrender.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false
+}));
 
-// Enhanced CORS configuration - FIXED FOR RENDER.COM
+// Enhanced CORS configuration for Render.com
 const corsOptions = {
-  origin: [
-    'https://manjhay.vercel.app',
-    'https://manjhay-git-main-manjhays-projects.vercel.app',
-    'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
-    'http://localhost:3000',
-    'https://localhost:3000'
-  ],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'https://manjhay.vercel.app',
+      'https://manjhay-git-main-manjhays-projects.vercel.app',
+      'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
+      'http://localhost:3000',
+      'https://localhost:3000'
+    ];
+    
+    // Allow requests with no origin (like mobile apps, postman, or websocket clients)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-auth-token'],
-  optionsSuccessStatus: 200
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-auth-token', 'Origin', 'Accept', 'Upgrade', 'Connection'],
+  exposedHeaders: ['Content-Length', 'X-WebSocket-Accept'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 app.use(cors(corsOptions));
@@ -46,13 +69,20 @@ app.use(cors(corsOptions));
 // Handle preflight requests globally
 app.options('*', cors(corsOptions));
 
-// Rate limiting
+// Rate limiting with WebSocket considerations
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: (req) => {
+    // Allow more requests for WebSocket connections
+    return req.headers.upgrade === 'websocket' ? 500 : 100;
+  },
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
+  },
+  skip: (req) => {
+    // Skip rate limiting for WebSocket upgrade requests
+    return req.headers.upgrade === 'websocket';
   }
 });
 app.use('/api/', limiter);
@@ -73,25 +103,27 @@ app.use('/api/notifications', notifications);
 app.use('/api/user-requests', userRequests);
 app.use('/api/users', userRoutes);
 
-// Health check route with WebSocket status
+// Enhanced health check route with WebSocket status
 app.get('/api/health', (req, res) => {
   const wsStatus = global.wsService ? {
     connected: true,
     clients: global.wsService.getConnectionCount(),
     connectedUsers: global.wsService.getConnectedUsers(),
-    connectionStats: global.wsService.getConnectionStats()
+    connectionStats: global.wsService.getConnectionStats(),
+    server: 'render.com'
   } : {
     connected: false,
     clients: 0,
-    connectedUsers: []
+    connectedUsers: [],
+    server: 'render.com'
   };
 
   res.json({
     success: true,
-    message: 'ManJhay API is running',
+    message: 'ManJhay API is running on Render.com',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0',
+    version: '2.0.0',
     cors: {
       enabled: true,
       allowedOrigins: corsOptions.origin
@@ -99,7 +131,9 @@ app.get('/api/health', (req, res) => {
     websocket: {
       ...wsStatus,
       endpoint: '/ws',
-      protocol: 'wss'
+      protocol: 'wss',
+      handshake: 'manual_upgrade',
+      authentication: 'token_query_param'
     },
     endpoints: {
       auth: '/api/auth',
@@ -107,17 +141,23 @@ app.get('/api/health', (req, res) => {
       orders: '/api/orders',
       users: '/api/users',
       notifications: '/api/notifications',
-      websocket: '/ws'
+      websocket: 'wss://manjhay-backend.onrender.com/ws'
+    },
+    server: {
+      platform: 'render.com',
+      node_version: process.version,
+      memory: process.memoryUsage()
     }
   });
 });
 
-// WebSocket test endpoint
+// Enhanced WebSocket test endpoint
 app.get('/api/websocket-test', (req, res) => {
   if (!global.wsService) {
     return res.status(503).json({
       success: false,
-      message: 'WebSocket service not available'
+      message: 'WebSocket service not available',
+      fix: 'Check WebSocket service initialization in server.js'
     });
   }
 
@@ -125,9 +165,59 @@ app.get('/api/websocket-test', (req, res) => {
 
   res.json({
     success: true,
-    message: 'WebSocket service is running',
-    data: stats
+    message: 'WebSocket service is running on Render.com',
+    data: stats,
+    connection_url: 'wss://manjhay-backend.onrender.com/ws?token=YOUR_JWT_TOKEN',
+    test_command: "wscat -c 'wss://manjhay-backend.onrender.com/ws?token=YOUR_JWT_TOKEN'"
   });
+});
+
+// WebSocket connection test endpoint
+app.get('/api/websocket-connection-test', async (req, res) => {
+  try {
+    const WebSocket = require('ws');
+    const token = req.query.token;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required for WebSocket connection test'
+      });
+    }
+
+    const wsUrl = `ws://localhost:${process.env.PORT || 5000}/ws?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+    
+    const connectionPromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        ws.close();
+        reject(new Error('WebSocket connection timeout'));
+      }, 5000);
+
+      ws.on('open', () => {
+        clearTimeout(timeout);
+        ws.close();
+        resolve({
+          success: true,
+          message: 'WebSocket connection successful'
+        });
+      });
+
+      ws.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
+
+    const result = await connectionPromise;
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'WebSocket connection test failed',
+      error: error.message
+    });
+  }
 });
 
 // Serve frontend in production
@@ -143,7 +233,14 @@ if (process.env.NODE_ENV === 'production') {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`
+    message: `Route ${req.originalUrl} not found`,
+    available_endpoints: [
+      '/api/health',
+      '/api/websocket-test',
+      '/api/websocket-connection-test',
+      '/api/auth',
+      '/api/products'
+    ]
   });
 });
 
@@ -155,6 +252,17 @@ const PORT = process.env.PORT || 5000;
 // Create HTTP server explicitly for WebSocket
 const server = http.createServer(app);
 
+// Initialize WebSocket service BEFORE starting the server
+try {
+  console.log('🔄 Initializing WebSocket service for Render.com...');
+  global.wsService = new WebSocketService(server);
+  console.log('✅ WebSocket service initialized successfully');
+} catch (error) {
+  console.error('❌ WebSocket service failed to initialize:', error.message);
+  process.exit(1);
+}
+
+// Start server
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   console.log(`🌐 CORS Allowed Origins: ${corsOptions.origin.join(', ')}`);
@@ -162,16 +270,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🔌 WebSocket test: https://manjhay-backend.onrender.com/api/websocket-test`);
   console.log(`📡 WebSocket endpoint: wss://manjhay-backend.onrender.com/ws`);
   console.log(`⚡ Server listening on: 0.0.0.0:${PORT}`);
+  console.log(`🔒 WebSocket Authentication: Token-based via query parameter`);
 });
-
-// Initialize WebSocket service with the HTTP server
-try {
-  global.wsService = new WebSocketService(server);
-  console.log('✅ WebSocket service initialized successfully');
-  console.log(`📡 WebSocket server listening on path: /ws`);
-} catch (error) {
-  console.error('❌ WebSocket service failed to initialize:', error.message);
-}
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {

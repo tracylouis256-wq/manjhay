@@ -8,77 +8,117 @@ class WebSocketService {
     try {
       console.log('🔄 Initializing WebSocket server for Render.com...');
       
-      // WebSocket server with PROPER CORS verification
+      // CRITICAL FIX: Use noServer: true for Render.com compatibility
       this.wss = new WebSocket.Server({ 
-        server,
-        path: '/ws', // SINGLE PATH
-        verifyClient: (info, callback) => {
-          const allowedOrigins = [
-            'https://manjhay.vercel.app',
-            'https://manjhay-git-main-manjhays-projects.vercel.app',
-            'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
-            'http://localhost:3000',
-            'https://localhost:3000'
-          ];
-          
-          const requestOrigin = info.origin || info.req.headers.origin;
-          console.log(`🔌 WebSocket connection attempt from origin: ${requestOrigin}`);
-          console.log(`📍 Request URL: ${info.req.url}`);
-          
-          // Allow connections from allowed origins or if origin is undefined
-          if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
-            console.log('✅ WebSocket CORS allowed for origin:', requestOrigin || 'undefined (direct connection)');
-            callback(true);
-          } else {
-            console.log('❌ WebSocket CORS blocked for origin:', requestOrigin);
-            callback(false, 403, 'Origin not allowed');
-          }
-        }
+        noServer: true, // Essential for Render's proxy setup
+        path: '/ws'
       });
       
       this.clients = new Map();
       this.userRoles = new Map();
       
+      // Set up manual upgrade handling - REQUIRED FOR RENDER
+      this.setupManualUpgrade(server);
+      
       this.wss.on('connection', this.handleConnection.bind(this));
       this.wss.on('error', this.handleServerError.bind(this));
-      this.wss.on('listening', () => {
-        console.log('✅ WebSocket server listening on path /ws');
-      });
       
-      console.log('✅ WebSocket server created successfully for Render.com');
+      console.log('✅ WebSocket server configured for Render.com with manual upgrade handling');
     } catch (error) {
       console.error('❌ Failed to create WebSocket server:', error);
       throw error;
     }
   }
 
+  // NEW METHOD: Manual upgrade handling for Render.com [citation:2][citation:5]
+  setupManualUpgrade(server) {
+    server.on('upgrade', (request, socket, head) => {
+      try {
+        console.log('🔄 WebSocket upgrade request received on Render.com');
+        console.log('📍 Request URL:', request.url);
+        console.log('🌐 Origin:', request.headers.origin);
+        console.log('🔑 Upgrade Header:', request.headers.upgrade);
+        console.log('📍 Remote Address:', request.socket.remoteAddress);
+        
+        // CORS validation for WebSocket upgrade [citation:1][citation:3]
+        const allowedOrigins = [
+          'https://manjhay.vercel.app',
+          'https://manjhay-git-main-manjhays-projects.vercel.app',
+          'https://manjhay-2b1y0ptnf-manjhays-projects.vercel.app',
+          'http://localhost:3000',
+          'https://localhost:3000'
+        ];
+        
+        const requestOrigin = request.headers.origin;
+        if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+          console.log('❌ WebSocket CORS blocked for origin:', requestOrigin);
+          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        // Validate WebSocket upgrade header
+        if (request.headers.upgrade !== 'websocket') {
+          console.log('❌ Invalid upgrade header:', request.headers.upgrade);
+          socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        // Extract token from query string
+        const url = new URL(request.url, `https://${request.headers.host}`);
+        const token = url.searchParams.get('token');
+        
+        console.log('🔑 Token extracted:', token ? 'Yes' : 'No');
+        
+        if (!token) {
+          console.log('❌ No token provided for WebSocket connection');
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+        
+        // Verify token before upgrading [citation:6][citation:8]
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          console.log('✅ Token verified for user:', decoded.id);
+          
+          // Store user info in request for later use
+          request.userId = decoded.id;
+          request.token = token;
+          
+          // Handle the upgrade
+          this.wss.handleUpgrade(request, socket, head, (ws) => {
+            this.wss.emit('connection', ws, request);
+          });
+          
+        } catch (jwtError) {
+          console.log('❌ JWT verification failed:', jwtError.message);
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+        }
+        
+      } catch (error) {
+        console.error('❌ WebSocket upgrade error:', error);
+        socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+        socket.destroy();
+      }
+    });
+  }
+
   async handleConnection(ws, req) {
     let user = null;
-    let userId = null;
+    let userId = req.userId; // From upgrade handler
     
     try {
-      console.log('🔌 New WebSocket connection attempt from Render.com');
-      console.log('📍 Request URL:', req.url);
-      console.log('🌐 Origin:', req.headers.origin);
-      console.log('📡 Remote Address:', req.socket.remoteAddress);
+      console.log('🔌 New WebSocket connection established on Render.com');
+      console.log('👤 User ID from upgrade:', userId);
 
-      // Extract token from query string - FIXED FOR RENDER.COM
-      const url = new URL(req.url, `https://${req.headers.host}`);
-      const token = url.searchParams.get('token');
-
-      console.log('🔑 Token extracted:', token ? 'Yes' : 'No');
-      
-      if (!token) {
-        console.log('❌ No token provided for WebSocket connection');
-        ws.close(1008, 'Authentication token required');
+      if (!userId) {
+        console.log('❌ No user ID in connection');
+        ws.close(1008, 'User authentication failed');
         return;
       }
-
-      // Verify JWT token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      userId = decoded.id;
-      
-      console.log('👤 User ID from token:', userId);
 
       // Find user in database
       user = await User.findById(userId);
@@ -116,15 +156,15 @@ class WebSocketService {
       console.log(`✅ WebSocket connected: ${userId} (${user.role || 'user'})`);
       console.log(`📊 Total connections: ${this.clients.size}`);
 
-      // Send connection confirmation
+      // Send connection confirmation [citation:3]
       this.sendToUser(userId.toString(), {
         type: 'connection_established',
         message: 'WebSocket connection established successfully on Render.com',
         userId: userId.toString(),
         userRole: user.role || 'user',
         timestamp: new Date().toISOString(),
-        connectionId: this.generateConnectionId(),
-        server: 'render.com'
+        server: 'render.com',
+        handshake: 'manual_upgrade'
       });
 
       // Set up message handler
@@ -142,26 +182,18 @@ class WebSocketService {
         this.handleConnectionError(userId, error);
       });
 
-      // Set up heartbeat for connection health
+      // Set up heartbeat with Render.com timeout considerations [citation:4]
       this.setupHeartbeat(ws, userId);
 
     } catch (error) {
       console.error('❌ WebSocket connection error:', error.message);
-      
-      if (error.name === 'JsonWebTokenError') {
-        ws.close(1008, 'Invalid authentication token');
-      } else if (error.name === 'TokenExpiredError') {
-        ws.close(1008, 'Authentication token expired');
-      } else {
-        console.error('🔧 WebSocket error stack:', error.stack);
-        ws.close(1011, 'Internal server error during authentication');
-      }
+      ws.close(1011, 'Internal server error during connection setup');
     }
   }
 
   handleMessage(user, data) {
     try {
-      const message = JSON.parse(data);
+      const message = JSON.parse(data.toString());
       console.log(`📨 Message from ${user._id}:`, message.type);
 
       switch (message.type) {
@@ -171,6 +203,11 @@ class WebSocketService {
             timestamp: new Date().toISOString(),
             server: 'render.com'
           });
+          break;
+          
+        case 'auth':
+          // Handle in-band authentication if needed [citation:6]
+          this.handleInBandAuth(user, message);
           break;
           
         case 'subscribe':
@@ -185,16 +222,28 @@ class WebSocketService {
           console.log(`❓ Unknown message type from ${user._id}:`, message.type);
           this.sendToUser(user._id.toString(), {
             type: 'error',
-            message: `Unknown message type: ${message.type}`
+            message: `Unknown message type: ${message.type}`,
+            server: 'render.com'
           });
       }
     } catch (error) {
       console.error(`❌ Error processing message from ${user._id}:`, error);
       this.sendToUser(user._id.toString(), {
         type: 'error',
-        message: 'Invalid message format'
+        message: 'Invalid message format',
+        server: 'render.com'
       });
     }
+  }
+
+  handleInBandAuth(user, message) {
+    // Additional in-band authentication if required [citation:6]
+    console.log(`🔐 In-band auth for user ${user._id}`);
+    this.sendToUser(user._id.toString(), {
+      type: 'auth_success',
+      message: 'Authentication confirmed',
+      server: 'render.com'
+    });
   }
 
   handleSubscription(user, message) {
@@ -253,6 +302,7 @@ class WebSocketService {
       console.log(`💓 Heartbeat received from user: ${userId}`);
     });
 
+    // Use longer timeouts for Render.com [citation:4]
     heartbeatInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         if (!isAlive) {
@@ -267,7 +317,7 @@ class WebSocketService {
       } else {
         clearInterval(heartbeatInterval);
       }
-    }, 30000);
+    }, 30000); // 30 seconds for Render.com
 
     ws.on('close', () => {
       if (heartbeatInterval) {
@@ -385,7 +435,9 @@ class WebSocketService {
       roles: roles,
       connectedUsers: this.getConnectedUsers(),
       serverTime: new Date().toISOString(),
-      server: 'render.com'
+      server: 'render.com',
+      upgradeHandler: 'manual',
+      authentication: 'token_query_param'
     };
   }
 

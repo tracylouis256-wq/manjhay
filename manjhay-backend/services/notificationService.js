@@ -233,7 +233,36 @@ class NotificationService {
     }
   }
 
-  // Create user notification
+  // ✅ NEW: Send real-time notification via WebSocket
+  static async sendRealTimeNotification(userId, notification) {
+    try {
+      if (!global.wsService) {
+        console.log('⚠️ WebSocket service not available for real-time notification');
+        return false;
+      }
+
+      console.log(`📡 [WEBSOCKET] Sending real-time notification to user ${userId}:`, {
+        title: notification.title,
+        type: notification.type,
+        id: notification._id
+      });
+
+      const success = global.wsService.sendNotification(userId.toString(), notification);
+      
+      if (success) {
+        console.log(`✅ Real-time notification sent successfully to user ${userId}`);
+      } else {
+        console.log(`⚠️ User ${userId} not connected, notification saved to database only`);
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('❌ Error sending real-time notification:', error);
+      return false;
+    }
+  }
+
+  // ✅ UPDATED: Create user notification with WebSocket
   static async createUserNotification(userId, templateType, ...args) {
     try {
       console.log(`🔔 [NOTIFICATION] Creating user notification: ${templateType} for user ${userId}`);
@@ -252,6 +281,9 @@ class NotificationService {
         message: notificationData.message,
         type: notificationData.type
       });
+
+      // ✅ Send real-time notification via WebSocket
+      await this.sendRealTimeNotification(userId, notification);
       
       return notification;
     } catch (error) {
@@ -260,7 +292,7 @@ class NotificationService {
     }
   }
 
-  // Create admin notification (for all admins)
+  // ✅ UPDATED: Create admin notification with WebSocket
   static async createAdminNotification(templateType, ...args) {
     try {
       const template = this.adminTemplates[templateType];
@@ -269,17 +301,23 @@ class NotificationService {
       }
 
       const admins = await Admin.find({ isActive: true });
-      const notifications = admins.map(admin => ({
-        adminId: admin._id,
-        audience: 'admin',
-        ...template(...args)
-      }));
+      const notifications = [];
 
-      if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
-        console.log(`✅ Admin notification created: ${templateType} for ${notifications.length} admins`);
+      for (const admin of admins) {
+        const notificationData = template(...args);
+        const notification = await Notification.create({
+          adminId: admin._id,
+          audience: 'admin',
+          ...notificationData
+        });
+        
+        notifications.push(notification);
+        
+        // ✅ Send real-time notification via WebSocket
+        await this.sendRealTimeNotification(admin._id, notification);
       }
 
+      console.log(`✅ Admin notification created: ${templateType} for ${notifications.length} admins`);
       return notifications;
     } catch (error) {
       console.error('❌ Error creating admin notification:', error);
@@ -287,7 +325,7 @@ class NotificationService {
     }
   }
 
-  // Create notification for specific admin
+  // ✅ UPDATED: Create notification for specific admin with WebSocket
   static async createAdminNotificationForUser(adminId, templateType, ...args) {
     try {
       const template = this.adminTemplates[templateType];
@@ -299,6 +337,10 @@ class NotificationService {
       const notification = await Notification.createAdminNotification(adminId, notificationData);
       
       console.log(`✅ Admin notification created: ${templateType} for admin ${adminId}`);
+      
+      // ✅ Send real-time notification via WebSocket
+      await this.sendRealTimeNotification(adminId, notification);
+      
       return notification;
     } catch (error) {
       console.error('❌ Error creating admin notification:', error);
@@ -306,7 +348,7 @@ class NotificationService {
     }
   }
 
-  // Broadcast to all users
+  // ✅ UPDATED: Broadcast to all users with WebSocket
   static async broadcastToUsers(templateType, ...args) {
     try {
       const template = this.userTemplates[templateType];
@@ -315,17 +357,23 @@ class NotificationService {
       }
 
       const users = await User.find({ isActive: true });
-      const notifications = users.map(user => ({
-        userId: user._id,
-        audience: 'user',
-        ...template(...args)
-      }));
+      const notifications = [];
 
-      if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
-        console.log(`✅ Broadcast notification sent: ${templateType} to ${notifications.length} users`);
+      for (const user of users) {
+        const notificationData = template(...args);
+        const notification = await Notification.create({
+          userId: user._id,
+          audience: 'user',
+          ...notificationData
+        });
+        
+        notifications.push(notification);
+        
+        // ✅ Send real-time notification via WebSocket
+        await this.sendRealTimeNotification(user._id, notification);
       }
 
+      console.log(`✅ Broadcast notification sent: ${templateType} to ${notifications.length} users`);
       return notifications;
     } catch (error) {
       console.error('❌ Error broadcasting notification:', error);
@@ -333,7 +381,7 @@ class NotificationService {
     }
   }
 
-  // Create custom notification
+  // ✅ UPDATED: Create custom notification with WebSocket
   static async createCustomUserNotification(userId, notificationData) {
     try {
       const notification = await Notification.create({
@@ -343,9 +391,104 @@ class NotificationService {
       });
       
       console.log(`✅ Custom notification created for user ${userId}`);
+      
+      // ✅ Send real-time notification via WebSocket
+      await this.sendRealTimeNotification(userId, notification);
+      
       return notification;
     } catch (error) {
       console.error('❌ Error creating custom notification:', error);
+      throw error;
+    }
+  }
+
+  // ✅ NEW: Send notification to multiple users
+  static async sendToMultipleUsers(userIds, templateType, ...args) {
+    try {
+      const template = this.userTemplates[templateType];
+      if (!template) {
+        throw new Error(`Unknown notification template: ${templateType}`);
+      }
+
+      const notifications = [];
+
+      for (const userId of userIds) {
+        const notificationData = template(...args);
+        const notification = await Notification.create({
+          userId,
+          audience: 'user',
+          ...notificationData
+        });
+        
+        notifications.push(notification);
+        
+        // ✅ Send real-time notification via WebSocket
+        await this.sendRealTimeNotification(userId, notification);
+      }
+
+      console.log(`✅ Notification sent to ${notifications.length} users: ${templateType}`);
+      return notifications;
+    } catch (error) {
+      console.error('❌ Error sending notification to multiple users:', error);
+      throw error;
+    }
+  }
+
+  // ✅ NEW: Get user notifications with enhanced logging
+  static async getUserNotifications(userId, page = 1, limit = 20) {
+    try {
+      const startIndex = (page - 1) * limit;
+
+      const notifications = await Notification.find({
+        $or: [
+          { userId: userId },
+          { audience: 'both' }
+        ]
+      })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(startIndex)
+      .lean();
+
+      const total = await Notification.countDocuments({
+        $or: [
+          { userId: userId },
+          { audience: 'both' }
+        ]
+      });
+
+      console.log(`📋 Retrieved ${notifications.length} notifications for user ${userId}`);
+      
+      return {
+        notifications,
+        pagination: {
+          page,
+          pages: Math.ceil(total / limit),
+          total
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error getting user notifications:', error);
+      throw error;
+    }
+  }
+
+  // ✅ NEW: Get unread count for user
+  static async getUserUnreadCount(userId) {
+    try {
+      const count = await Notification.countDocuments({
+        $or: [
+          { userId: userId },
+          { audience: 'both' }
+        ],
+        read: false
+      });
+
+      console.log(`📊 User ${userId} has ${count} unread notifications`);
+      
+      return count;
+    } catch (error) {
+      console.error('❌ Error getting user unread count:', error);
       throw error;
     }
   }
