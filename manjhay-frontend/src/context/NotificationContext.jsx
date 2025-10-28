@@ -33,13 +33,19 @@ export const NotificationProvider = ({ children }) => {
   // ✅ FIXED: Environment variables
   const API_URL = import.meta.env?.VITE_API_URL || 'https://manjhay-backend.onrender.com';
   
-  // ✅ CRITICAL FIX: Remove any existing /ws from WS_URL to prevent double path
-  const WS_BASE_URL = import.meta.env?.VITE_WS_URL || 'wss://manjhay-backend.onrender.com';
-  const WS_URL = WS_BASE_URL.replace(/\/ws$/, ''); // Remove trailing /ws if present
-
-  // ✅ FIXED: WebSocket URL construction - SINGLE /ws path
+  // ✅ CRITICAL FIX: Use correct WebSocket URL without double /ws
+  const WS_BASE_URL = import.meta.env?.VITE_WS_URL || 'https://manjhay-backend.onrender.com';
+  
+  // ✅ FIXED: Proper WebSocket URL construction
   const getWebSocketUrl = (token) => {
-    const wsUrl = `${WS_URL}/ws?token=${token}`;
+    // Remove any protocol and ensure we have clean base URL
+    const cleanBaseUrl = WS_BASE_URL
+      .replace(/^https?:\/\//, '') // Remove http/https
+      .replace(/\/ws$/, '') // Remove any trailing /ws
+      .replace(/\/$/, ''); // Remove any trailing slash
+    
+    // Construct proper WebSocket URL with wss protocol
+    const wsUrl = `wss://${cleanBaseUrl}/ws?token=${token}`;
     console.log('🔌 [WEBSOCKET] Final WebSocket URL:', wsUrl);
     return wsUrl;
   };
@@ -88,7 +94,7 @@ export const NotificationProvider = ({ children }) => {
     console.log('💾 [NOTIFICATION] Saved unread count to localStorage:', unreadCount);
   }, [unreadCount]);
 
-  // WebSocket connection - FIXED
+  // WebSocket connection - COMPLETELY FIXED
   useEffect(() => {
     if (isAuthenticated && user) {
       console.log('🔌 [NOTIFICATION] User authenticated, connecting WebSocket...');
@@ -119,7 +125,7 @@ export const NotificationProvider = ({ children }) => {
         return;
       }
 
-      // ✅ This will now create: wss://manjhay-backend.onrender.com/ws?token=...
+      // ✅ FIXED: This will now create: wss://manjhay-backend.onrender.com/ws?token=...
       const wsUrl = getWebSocketUrl(token);
       
       console.log('🔌 [NOTIFICATION] Attempting WebSocket connection to:', wsUrl);
